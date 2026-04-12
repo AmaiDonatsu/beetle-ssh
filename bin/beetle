@@ -209,6 +209,34 @@ program
     });
   });
 
+program
+  .command('send_key <id> <key>')
+  .description('Send a special key combination (like ctrl+c) to a session')
+  .action((id, key) => {
+    const keyMap = {
+      'ctrl+c': '\x03',
+      'ctrl+d': '\x04',
+      'ctrl+z': '\x1A',
+      'ctrl+l': '\x0C',
+      'esc': '\x1B',
+      'enter': '\x0D'
+    };
+    
+    const hexKey = keyMap[key.toLowerCase()];
+    if (!hexKey) {
+      console.error(`Error: Unknown key mapping '${key}'. Available keys: ${Object.keys(keyMap).join(', ')}`);
+      process.exit(1);
+    }
+
+    sendCommand({ type: 'send_key', id, key: hexKey }, (res) => {
+      if (res.type === 'error') {
+        console.error('Error:', res.message);
+      } else {
+        console.log(`Key '${key}' sent successfully.`);
+      }
+    });
+  });
+
 const { spawn } = require('child_process');
 const path = require('path');
 

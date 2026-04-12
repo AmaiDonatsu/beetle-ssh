@@ -134,6 +134,15 @@ const server = net.createServer((socket) => {
           }, 1000);
         }
         break;
+      case 'send_key':
+        const tk = sessions.find(sub => sub.id === parseInt(msg.id, 10));
+        if (!tk || !tk.stream) {
+          socket.write(serialize({ type: 'error', message: 'Session stream not found' }));
+          return;
+        }
+        tk.stream.write(msg.key);
+        socket.write(serialize({ type: 'send_key', status: 'key sent' }));
+        break;
       case 'exec':
         const [cmd, ...args] = msg.command.split(' ');
         const child = spawn(cmd, args, {
