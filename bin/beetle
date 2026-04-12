@@ -155,6 +155,19 @@ program
     }
   });
 
+program
+  .command('create_session <alias>')
+  .description('Connects and creates an SSH session in the background')
+  .action((alias) => {
+    sendCommand({ type: 'create_session', alias }, (res) => {
+      if (res.type === 'error') {
+        console.error('Failed:', res.message);
+      } else {
+        console.log(`SSH Session attempt started. Status: ${res.session.status} (ID: ${res.session.id})`);
+      }
+    });
+  });
+
 const { spawn } = require('child_process');
 const path = require('path');
 

@@ -2,15 +2,17 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const { parse, serialize, SOCKET_PATH } = require('./protocol');
-
 const { spawn } = require('child_process');
+const { Client } = require('ssh2');
+const { listSshConfigs } = require('./config-store');
+const { getEnv } = require('./secret-store');
 
 const sessions = [];
 
 const server = net.createServer((socket) => {
   console.log('Client connected');
 
-  socket.on('data', (data) => {
+  socket.on('data', async (data) => {
     const msg = parse(data);
     if (!msg) return;
 
@@ -24,8 +26,83 @@ const server = net.createServer((socket) => {
           command: s.command,
           status: s.status,
           pid: s.pid,
-          startedAt: s.startedAt
+          startedAt: s.startedAt,
+          alias: s.alias
         })) }));
+        break;
+      case 'create_session':
+        try {
+          const configs = await listSshConfigs();
+          const config = configs ? configs.find(c => c.alias === msg.alias) : null;
+          if (!config) {
+            socket.write(serialize({ type: 'error', message: 'Alias not found' }));
+            return;
+          }
+
+          const envObj = await getEnv(config.id);
+          const password = envObj && envObj.SUPER_USER_PASSWORD ? envObj.SUPER_USER_PASSWORD : undefined;
+
+          // Assumes route is like root@192.168.1.10
+          let username = 'root', host = config.route, port = 22;
+          if (config.route.includes('@')) {
+            const parts = config.route.split('@');
+            username = parts[0];
+            host = parts[1];
+          }
+          if (host.includes(':')) {
+            const hParts = host.split(':');
+            host = hParts[0];
+            port = parseInt(hParts[1], 10);
+          }
+
+          const conn = new Client();
+          const session = {
+            id: sessions.length + 1,
+            command: `ssh ${config.route}`,
+            status: 'connecting',
+            alias: config.alias,
+            pid: null, // SSH2 holds conn internally
+            startedAt: new Date().toISOString(),
+            conn
+          };
+          sessions.push(session);
+
+          // Return immediately with the connecting status
+          socket.write(serialize({ type: 'create_session', session: { id: session.id, status: session.status } }));
+
+          conn.on('ready', () => {
+            session.status = 'ready';
+            conn.shell((err, stream) => {
+              if (err) {
+                session.status = `shell error: ${err.message}`;
+                return;
+              }
+              session.stream = stream;
+              stream.on('close', () => {
+                session.status = 'closed';
+                conn.end();
+              }).on('data', (d) => {
+                // optionally save stream data or check outputs
+              });
+            });
+          }).on('error', (err) => {
+            session.status = `error: ${err.message}`;
+          }).on('end', () => {
+            session.status = 'ended';
+          }).on('close', () => {
+            session.status = 'closed';
+          });
+
+          conn.connect({
+            host,
+            port,
+            username,
+            password,
+            readyTimeout: 10000
+          });
+        } catch (err) {
+          socket.write(serialize({ type: 'error', message: err.message }));
+        }
         break;
       case 'exec':
         const [cmd, ...args] = msg.command.split(' ');
