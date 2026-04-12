@@ -1,0 +1,115 @@
+#!/usr/bin/env node
+const { program } = require('commander');
+const net = require('net');
+const fs = require('fs');
+const { SOCKET_PATH, parse, serialize } = require('../src/protocol');
+
+program
+  .name('beetle')
+  .description('Beetle SSH Daemon CLI')
+  .version('0.1.0');
+
+function sendCommand(msg, callback) {
+  const client = net.createConnection(SOCKET_PATH, () => {
+    client.write(serialize(msg));
+  });
+
+  client.on('data', (data) => {
+    const response = parse(data);
+    callback(response);
+    client.end();
+  });
+
+  client.on('error', (err) => {
+    if (err.code === 'ENOENT') {
+      console.error('Error: Daemon is not running. Start it with node src/daemon.js');
+    } else {
+      console.error('Error:', err.message);
+    }
+    process.exit(1);
+  });
+}
+
+program
+  .command('ping')
+  .description('Ping the daemon')
+  .action(() => {
+    sendCommand({ type: 'ping' }, (res) => {
+      console.log('Daemon response:', res.type === 'pong' ? 'PONG' : res);
+    });
+  });
+
+program
+  .command('ps')
+  .description('List background sessions')
+  .action(() => {
+    sendCommand({ type: 'ps' }, (res) => {
+      if (res.sessions.length === 0) {
+        console.log('No active sessions.');
+      } else {
+        console.table(res.sessions);
+      }
+    });
+  });
+
+program
+  .command('exec <command...>')
+  .description('Execute a command in the background')
+  .action((command) => {
+    const fullCommand = command.join(' ');
+    sendCommand({ type: 'exec', command: fullCommand }, (res) => {
+      console.log(`Started session ${res.session.id} for command: ${res.session.command}`);
+    });
+  });
+
+program
+  .command('count-start')
+  .description('Starts a simple loop counter in the background')
+  .action(() => {
+    const counterScript = path.join(__dirname, '../src/counter.js');
+    const stateFile = '/tmp/beetle-test-counter.txt';
+    const fullCommand = `node ${counterScript} ${stateFile}`;
+    sendCommand({ type: 'exec', command: fullCommand }, (res) => {
+      console.log(`Counter started in background session ${res.session.id}. State saved to ${stateFile}`);
+    });
+  });
+
+program
+  .command('count-status')
+  .description('Check the status of the background counter')
+  .action(() => {
+    const stateFile = '/tmp/beetle-test-counter.txt';
+    try {
+      if (fs.existsSync(stateFile)) {
+        const count = fs.readFileSync(stateFile, 'utf8');
+        console.log(`The counter is currently at second: ${count}`);
+      } else {
+        console.log('Counter state file not found. Have you run "count-start" yet?');
+      }
+    } catch (err) {
+      console.error('Error reading counter status:', err.message);
+    }
+  });
+
+const { spawn } = require('child_process');
+const path = require('path');
+
+program
+  .command('start-daemon')
+  .description('Start the beetle daemon in the background')
+  .action(() => {
+    const daemonPath = path.join(__dirname, '../src/daemon.js');
+    const out = fs.openSync('/tmp/beetle-daemon.log', 'a');
+    const err = fs.openSync('/tmp/beetle-daemon.log', 'a');
+
+    const child = spawn('node', [daemonPath], {
+      detached: true,
+      stdio: ['ignore', out, err]
+    });
+
+    child.unref();
+    console.log(`Daemon started in background (PID: ${child.pid}). Logs at /tmp/beetle-daemon.log`);
+    process.exit(0);
+  });
+
+program.parse();
