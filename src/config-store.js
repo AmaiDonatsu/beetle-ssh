@@ -50,9 +50,26 @@ async function listSshConfigs() {
   return conf.get('sshs');
 }
 
+/**
+ * Removes an SSH configuration by ID.
+ * @param {string|number} id 
+ */
+async function removeSshConfig(id) {
+  const conf = await getConf();
+  let sshs = conf.get('sshs');
+  const initialLength = sshs.length;
+  // Type coercion safely:
+  sshs = sshs.filter(s => String(s.id) !== String(id));
+  if (sshs.length === initialLength) {
+    throw new Error(`SSH Config with ID ${id} not found`);
+  }
+  conf.set('sshs', sshs);
+}
+
 module.exports = {
   addSshConfig,
   getSshConfig,
   listSshConfigs,
+  removeSshConfig,
   getConf // Exposed for clearing/debugging if needed
 };

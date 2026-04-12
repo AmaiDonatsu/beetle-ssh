@@ -31,7 +31,13 @@ Antes de crear una conexión, necesitas dar de alta tu servidor en la bóveda de
 beetle new_ssh <ruta> <alias>
 ```
 *Ejemplo:* `beetle new_ssh root@192.168.1.50 mi-servidor`
-* Esto creará un nuevo identificador (ID único) y lo asociará al alias `mi-servidor`. Puedes listar todos tus servidores registrados en cualquier momento mediante `beetle ssh_list`.
+- Esto creará un nuevo identificador (ID único) y lo asociará al alias `mi-servidor`. Puedes listar todos tus servidores registrados en cualquier momento mediante `beetle ssh_list`.
+
+**Paso 2.1.b: Eliminar un Servidor**
+Si deseas hacer limpieza o borrar algo que creaste para pruebas, puedes removerlo asegurando que Beetle descifre y limpie su contraseña permanentemente con:
+```bash
+beetle remove_ssh <ID>
+```
 
 **Paso 2.2: Proveer Autenticación Segura (Opcional pero recomendado para auto-logins)**
 ```bash

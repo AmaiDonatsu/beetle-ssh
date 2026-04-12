@@ -123,6 +123,22 @@ program
   });
 
 program
+  .command('remove_ssh <id>')
+  .description('Remove an SSH server from the records and secure vault')
+  .action(async (id) => {
+    const { removeSshConfig } = require('../src/config-store');
+    const { deleteEnv } = require('../src/secret-store');
+    try {
+      await removeSshConfig(id);
+      await deleteEnv(id);
+      console.log(`Successfully removed SSH config with ID '${id}' and cleaned its secure secrets.`);
+    } catch (err) {
+      console.error('Failed to remove SSH config:', err.message);
+      process.exit(1);
+    }
+  });
+
+program
   .command('set_sudo <id>')
   .description('Set the super user password for an SSH config')
   .action(async (id) => {
