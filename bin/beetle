@@ -181,6 +181,34 @@ program
     });
   });
 
+program
+  .command('write <id> <input...>')
+  .description('Write a command to an SSH session and read output')
+  .action((id, inputArr) => {
+    const input = inputArr.join(' ');
+    sendCommand({ type: 'write', id, input }, (res) => {
+      if (res.type === 'error') {
+        console.error('Error:', res.message);
+      } else {
+        console.log(res.output || '(No output)');
+      }
+    });
+  });
+
+program
+  .command('write_q <id> <input...>')
+  .description('Write a command to an SSH session quietly')
+  .action((id, inputArr) => {
+    const input = inputArr.join(' ');
+    sendCommand({ type: 'write_q', id, input }, (res) => {
+      if (res.type === 'error') {
+        console.error('Error:', res.message);
+      } else {
+        console.log('Command sent quietly.');
+      }
+    });
+  });
+
 const { spawn } = require('child_process');
 const path = require('path');
 

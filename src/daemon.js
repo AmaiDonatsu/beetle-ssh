@@ -115,6 +115,25 @@ const server = net.createServer((socket) => {
           socket.write(serialize({ type: 'read_session', output: s.output || '' }));
         }
         break;
+      case 'write':
+      case 'write_q':
+        const targetSession = sessions.find(sub => sub.id === parseInt(msg.id, 10));
+        if (!targetSession || !targetSession.stream) {
+          socket.write(serialize({ type: 'error', message: 'Session stream not found or not ready' }));
+          return;
+        }
+
+        targetSession.stream.write(msg.input + '\n');
+
+        if (msg.type === 'write_q') {
+          socket.write(serialize({ type: 'write_q', status: 'written' }));
+        } else {
+          // Give some time for the process to output data to the buffer
+          setTimeout(() => {
+            socket.write(serialize({ type: 'write', output: targetSession.output || '' }));
+          }, 1000);
+        }
+        break;
       case 'exec':
         const [cmd, ...args] = msg.command.split(' ');
         const child = spawn(cmd, args, {
