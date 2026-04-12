@@ -63,6 +63,7 @@ const server = net.createServer((socket) => {
             alias: config.alias,
             pid: null, // SSH2 holds conn internally
             startedAt: new Date().toISOString(),
+            output: '', // Buffer to hold session data
             conn
           };
           sessions.push(session);
@@ -82,7 +83,9 @@ const server = net.createServer((socket) => {
                 session.status = 'closed';
                 conn.end();
               }).on('data', (d) => {
-                // optionally save stream data or check outputs
+                session.output += d.toString('utf8');
+              }).stderr.on('data', (d) => {
+                session.output += d.toString('utf8');
               });
             });
           }).on('error', (err) => {
@@ -102,6 +105,14 @@ const server = net.createServer((socket) => {
           });
         } catch (err) {
           socket.write(serialize({ type: 'error', message: err.message }));
+        }
+        break;
+      case 'read_session':
+        const s = sessions.find(sub => sub.id === parseInt(msg.id, 10));
+        if (!s) {
+          socket.write(serialize({ type: 'error', message: 'Session not found' }));
+        } else {
+          socket.write(serialize({ type: 'read_session', output: s.output || '' }));
         }
         break;
       case 'exec':

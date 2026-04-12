@@ -168,6 +168,19 @@ program
     });
   });
 
+program
+  .command('read_session <id>')
+  .description('Read the output log of a given SSH session')
+  .action((id) => {
+    sendCommand({ type: 'read_session', id }, (res) => {
+      if (res.type === 'error') {
+        console.error('Error:', res.message);
+      } else {
+        console.log(res.output || '(No output recorded yet)');
+      }
+    });
+  });
+
 const { spawn } = require('child_process');
 const path = require('path');
 
