@@ -91,6 +91,70 @@ program
     }
   });
 
+program
+  .command('new_ssh <route> <alias>')
+  .description('Register a new SSH configuration')
+  .action(async (route, alias) => {
+    const { addSshConfig } = require('../src/config-store');
+    const id = Date.now().toString(); // Generate simple automatic ID
+    try {
+      await addSshConfig({ id, route, alias });
+      console.log(`Successfully registered SSH config: ${alias} (ID: ${id}) for route ${route}`);
+    } catch (err) {
+      console.error('Failed to register new SSH config:', err.message);
+    }
+  });
+
+program
+  .command('ssh_list')
+  .description('List all registered SSH configurations')
+  .action(async () => {
+    const { listSshConfigs } = require('../src/config-store');
+    try {
+      const sshs = await listSshConfigs();
+      if (!sshs || sshs.length === 0) {
+        console.log('No SSH configurations registered.');
+      } else {
+        console.table(sshs);
+      }
+    } catch (err) {
+      console.error('Failed to list SSH configs:', err.message);
+    }
+  });
+
+program
+  .command('set_sudo <id>')
+  .description('Set the super user password for an SSH config')
+  .action(async (id) => {
+    const { getSshConfig } = require('../src/config-store');
+    const { getEnv, setEnv } = require('../src/secret-store');
+    
+    try {
+      const config = await getSshConfig(id);
+      if (!config) {
+        console.error(`Error: SSH configuration with ID '${id}' not found.`);
+        return;
+      }
+      
+      const { default: password } = await import('@inquirer/password');
+      const pass = await password({
+        message: `Enter super user password for ${config.alias} (${config.route}):`,
+        mask: '*'
+      });
+      
+      let envObj = await getEnv(id);
+      if (!envObj) envObj = {};
+      envObj.SUPER_USER_PASSWORD = pass;
+      
+      await setEnv(id, envObj);
+      console.log(`Successfully saved super user password for ID '${id}'.`);
+      process.exit(0);
+    } catch (err) {
+      console.error('Failed to set sudo password:', err.message);
+      process.exit(1);
+    }
+  });
+
 const { spawn } = require('child_process');
 const path = require('path');
 
