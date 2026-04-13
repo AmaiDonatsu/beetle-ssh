@@ -109,3 +109,5 @@ Las teclas amigables soportadas que se inyectarán en formato de Bytes Control a
 
 ---
 **Nota de Tester:** Beetle SSH almacena local y confiablemente perfiles y claves del llavero OS nativo de modo que todo sea automatizado. Disfruta interactuando bidireccionalmente con consolas de forma desvinculada (headless stream mode). Cada bit de telemetría está protegido y se inyecta nativamente como Streams en Node.
+
+
