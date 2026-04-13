@@ -69,6 +69,13 @@ beetle read_session <ID_Sesion> --clean
 # O en inyecciones directas: beetle write <ID_Sesion> --clean "htop"
 ```
 
+### Reconectar una sesión cerrada
+Si reinicias tu servidor remotamente o la conexión se rompe por inactividad prolongada (y su estado pasa a `closed`), no necesitas generar un nuevo ID. Puedes revivirla rápidamente usando su ID anterior:
+```bash
+beetle reconnect <ID_Sesion>
+```
+*Beetle restaurará el socket en el fondo conservando los metadatos y reiniciará el prompt de forma transparente.*
+
 ### Mandar Comandos Interactivos al Flujo
 Si tu sesión indica el estado `'ready'` en `beetle ps`, el túnel está abierto y puedes mandarle programas.
 ```bash

@@ -9,6 +9,47 @@ const { getEnv } = require('./secret-store');
 
 const sessions = [];
 
+const attachHandlers = (session, conn, password) => {
+  conn.on('ready', () => {
+    session.status = 'ready';
+    conn.shell((err, stream) => {
+      if (err) {
+        session.status = `shell error: ${err.message}`;
+        return;
+      }
+      session.stream = stream;
+
+      const appendToBuffer = (text) => {
+        session.output += text;
+        if (session.output.length > 150000) {
+          session.output = session.output.slice(-100000);
+        }
+        if (password) {
+          const recent = session.output.slice(-100);
+          if (/\[sudo\].*(password|contraseña).*:\s*$/i.test(recent)) {
+            stream.write(password + '\n');
+            session.output += '\n[Beetle: Sudo password auto-filled securely from vault]\n';
+          }
+        }
+      };
+
+      stream.on('close', () => {
+        session.status = 'closed';
+        conn.end();
+      }).on('data', (d) => {
+        appendToBuffer(d.toString('utf8'));
+      }).stderr.on('data', (d) => {
+        appendToBuffer(d.toString('utf8'));
+      });
+    });
+  }).on('error', (err) => {
+    session.status = `error: ${err.message}`;
+  }).on('end', () => {
+    session.status = 'ended';
+  }).on('close', () => {
+    session.status = 'closed';
+  });
+};
 const server = net.createServer((socket) => {
   console.log('Client connected');
 
@@ -71,48 +112,7 @@ const server = net.createServer((socket) => {
           // Return immediately with the connecting status
           socket.write(serialize({ type: 'create_session', session: { id: session.id, status: session.status } }));
 
-          conn.on('ready', () => {
-            session.status = 'ready';
-            conn.shell((err, stream) => {
-              if (err) {
-                session.status = `shell error: ${err.message}`;
-                return;
-              }
-              session.stream = stream;
-
-              const appendToBuffer = (text) => {
-                session.output += text;
-                // Amortized truncate: if > 150kb, cut down to 100kb
-                if (session.output.length > 150000) {
-                  session.output = session.output.slice(-100000);
-                }
-
-                // Autodetect sudo prompts and auto-fill via stream injection
-                if (password) {
-                  const recent = session.output.slice(-100);
-                  if (/\[sudo\].*(password|contraseña).*:\s*$/i.test(recent)) {
-                    stream.write(password + '\n');
-                    session.output += '\n[Beetle: Sudo password auto-filled securely from vault]\n';
-                  }
-                }
-              };
-
-              stream.on('close', () => {
-                session.status = 'closed';
-                conn.end();
-              }).on('data', (d) => {
-                appendToBuffer(d.toString('utf8'));
-              }).stderr.on('data', (d) => {
-                appendToBuffer(d.toString('utf8'));
-              });
-            });
-          }).on('error', (err) => {
-            session.status = `error: ${err.message}`;
-          }).on('end', () => {
-            session.status = 'ended';
-          }).on('close', () => {
-            session.status = 'closed';
-          });
+          attachHandlers(session, conn, password);
 
           conn.connect({
             host,
@@ -123,6 +123,58 @@ const server = net.createServer((socket) => {
             keepaliveInterval: 30000,
             keepaliveCountMax: 3
           });
+        } catch (err) {
+          socket.write(serialize({ type: 'error', message: err.message }));
+        }
+        break;
+      case 'reconnect':
+        try {
+          const targetSession = sessions.find(sub => sub.id === parseInt(msg.id, 10));
+          if (!targetSession) {
+            socket.write(serialize({ type: 'error', message: 'Session not found' }));
+            return;
+          }
+          if (['ready', 'connecting'].includes(targetSession.status)) {
+            socket.write(serialize({ type: 'error', message: `Session is currently ${targetSession.status}` }));
+            return;
+          }
+
+          const configs = await listSshConfigs();
+          const config = configs ? configs.find(c => c.alias === targetSession.alias) : null;
+          if (!config) {
+             socket.write(serialize({ type: 'error', message: 'Alias not found in config' }));
+             return;
+          }
+
+          const envObj = await getEnv(config.id);
+          const password = envObj && envObj.SUPER_USER_PASSWORD ? envObj.SUPER_USER_PASSWORD : undefined;
+
+          let username = 'root', host = config.route, port = 22;
+          if (config.route.includes('@')) {
+            const parts = config.route.split('@');
+            username = parts[0];
+            host = parts[1];
+          }
+          if (host.includes(':')) {
+            const hParts = host.split(':');
+            host = hParts[0];
+            port = parseInt(hParts[1], 10);
+          }
+
+          const conn = new Client();
+          targetSession.status = 'connecting';
+          targetSession.conn = conn;
+          targetSession.startedAt = new Date().toISOString();
+          targetSession.output += '\n\n--- [Beetle: Session Reconnected] ---\n\n';
+
+          attachHandlers(targetSession, conn, password);
+
+          conn.connect({
+            host, port, username, password,
+            readyTimeout: 10000, keepaliveInterval: 30000, keepaliveCountMax: 3
+          });
+
+          socket.write(serialize({ type: 'reconnect', session: { id: targetSession.id, status: targetSession.status } }));
         } catch (err) {
           socket.write(serialize({ type: 'error', message: err.message }));
         }

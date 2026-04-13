@@ -185,6 +185,19 @@ program
   });
 
 program
+  .command('reconnect <id>')
+  .description('Reconnects a closed session using its existing ID while preserving metadata')
+  .action((id) => {
+    sendCommand({ type: 'reconnect', id }, (res) => {
+      if (res.type === 'error') {
+        console.error('Failed:', res.message);
+      } else {
+        console.log(`SSH Session reconnection attempt started. Status: ${res.session.status} (ID: ${res.session.id})`);
+      }
+    });
+  });
+
+program
   .command('read_session <id>')
   .option('--clean', 'Strip ANSI escape sequences from output')
   .description('Read the output log of a given SSH session')
