@@ -63,6 +63,12 @@ En lugar de mirar fijamente una pantalla, con Beetle usas el ID arrojado en el p
 beetle read_session <ID_Sesion>
 ```
 
+*💡 Nuevo: Si abriste un programa gráfico complejo interactivo (como htop o vim) e intentas leerlo, te saldrá un montón de texto incomprensible (Códigos ANSI). Para evitarlo y limpiar mágicamente la lectura a texto plano entendible, añade el flag `--clean`:*
+```bash
+beetle read_session <ID_Sesion> --clean
+# O en inyecciones directas: beetle write <ID_Sesion> --clean "htop"
+```
+
 ### Mandar Comandos Interactivos al Flujo
 Si tu sesión indica el estado `'ready'` en `beetle ps`, el túnel está abierto y puedes mandarle programas.
 ```bash

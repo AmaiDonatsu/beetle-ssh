@@ -186,27 +186,47 @@ program
 
 program
   .command('read_session <id>')
+  .option('--clean', 'Strip ANSI escape sequences from output')
   .description('Read the output log of a given SSH session')
-  .action((id) => {
-    sendCommand({ type: 'read_session', id }, (res) => {
+  .action(async (id, options) => {
+    sendCommand({ type: 'read_session', id }, async (res) => {
       if (res.type === 'error') {
         console.error('Error:', res.message);
       } else {
-        console.log(res.output || '(No output recorded yet)');
+        let text = res.output || '(No output recorded yet)';
+        if (options.clean) {
+          const { default: stripAnsi } = await import('strip-ansi');
+          text = stripAnsi(text);
+        }
+        console.log(text);
       }
     });
   });
 
 program
   .command('write <id> <input...>')
+  .option('--clean', 'Strip ANSI escape sequences from output')
   .description('Write a command to an SSH session and read output')
-  .action((id, inputArr) => {
-    const input = inputArr.join(' ');
-    sendCommand({ type: 'write', id, input }, (res) => {
+  .action(async (id, inputArr, options) => {
+    const input = id instanceof Object ? [] : inputArr; 
+    // Commander passes options as last arg, if input isn't varadic properly
+    const actualInput = input.join(' ');
+    let clean = id instanceof Object ? id.clean : options.clean;
+    
+    // Correcting commander variadic args with options
+    // Commander format for variadic with options: program.command('xyz <id> [inputs...]')
+    // Since input... is required above, options comes AFTER it.
+    
+    sendCommand({ type: 'write', id, input: actualInput }, async (res) => {
       if (res.type === 'error') {
         console.error('Error:', res.message);
       } else {
-        console.log(res.output || '(No output)');
+        let text = res.output || '(No output)';
+        if (options && options.clean || inputArr.clean) {
+          const { default: stripAnsi } = await import('strip-ansi');
+          text = stripAnsi(text);
+        }
+        console.log(text);
       }
     });
   });
