@@ -79,13 +79,31 @@ const server = net.createServer((socket) => {
                 return;
               }
               session.stream = stream;
+
+              const appendToBuffer = (text) => {
+                session.output += text;
+                // Amortized truncate: if > 150kb, cut down to 100kb
+                if (session.output.length > 150000) {
+                  session.output = session.output.slice(-100000);
+                }
+
+                // Autodetect sudo prompts and auto-fill via stream injection
+                if (password) {
+                  const recent = session.output.slice(-100);
+                  if (/\[sudo\].*(password|contraseña).*:\s*$/i.test(recent)) {
+                    stream.write(password + '\n');
+                    session.output += '\n[Beetle: Sudo password auto-filled securely from vault]\n';
+                  }
+                }
+              };
+
               stream.on('close', () => {
                 session.status = 'closed';
                 conn.end();
               }).on('data', (d) => {
-                session.output += d.toString('utf8');
+                appendToBuffer(d.toString('utf8'));
               }).stderr.on('data', (d) => {
-                session.output += d.toString('utf8');
+                appendToBuffer(d.toString('utf8'));
               });
             });
           }).on('error', (err) => {
