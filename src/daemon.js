@@ -119,7 +119,9 @@ const server = net.createServer((socket) => {
             port,
             username,
             password,
-            readyTimeout: 10000
+            readyTimeout: 10000,
+            keepaliveInterval: 30000,
+            keepaliveCountMax: 3
           });
         } catch (err) {
           socket.write(serialize({ type: 'error', message: err.message }));
@@ -152,6 +154,25 @@ const server = net.createServer((socket) => {
           }, 1000);
         }
         break;
+      case 'drop_session': {
+        const dropId = parseInt(msg.id, 10);
+        const dropSessionIndex = sessions.findIndex(sub => sub.id === dropId);
+        if (dropSessionIndex === -1) {
+          socket.write(serialize({ type: 'error', message: 'Session not found' }));
+          return;
+        }
+        const s = sessions[dropSessionIndex];
+        if (s.stream) {
+          s.stream.close();
+        }
+        if (s.conn) {
+          s.conn.end();
+          s.conn.destroy();
+        }
+        sessions.splice(dropSessionIndex, 1);
+        socket.write(serialize({ type: 'drop_session', message: 'Session forcefully dropped' }));
+        break;
+      }
       case 'send_key':
         const tk = sessions.find(sub => sub.id === parseInt(msg.id, 10));
         if (!tk || !tk.stream) {

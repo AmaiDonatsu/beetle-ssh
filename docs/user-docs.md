@@ -80,6 +80,13 @@ beetle write_q <ID_Sesion> <comando>
 ```
 *Ejemplo clásico:* `beetle write 1 echo "Hola desde Beetle"` o mandar a actualizar el sistema `beetle write_q 1 apt-get update -y`.
 
+### Forzar Cierre Completo de Sesión (Rescue Mode)
+Si la sesión o servidor remoto sufre un Hard-Sleep irrecuperable (por ejemplo, el OS está corrupto de lectura, la red se cayó y quedó Zombie), puedes forzar al daemon de Beetle a destruir el socket TCP y liberar el bloque de memoria de esa terminal:
+```bash
+beetle drop_session <ID_Sesion>
+```
+*Notarás que al hacer esto, el ID desaparecerá enteramente de `beetle ps` y túnel de conexión subyacente será fulminado. Deberás volver a iniciar la sesión con `create_session`.*
+
 ---
 
 ## 4. Control Experto de Interrupciones Teclado

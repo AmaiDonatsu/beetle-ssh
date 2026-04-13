@@ -232,6 +232,19 @@ program
   });
 
 program
+  .command('drop_session <id>')
+  .description('Forcibly drop an unresponsive session and clear it from daemon memory')
+  .action((id) => {
+    sendCommand({ type: 'drop_session', id }, (res) => {
+      if (res.type === 'error') {
+        console.error('Error:', res.message);
+      } else {
+        console.log(res.message || `Session ${id} successfully dropped.`);
+      }
+    });
+  });
+
+program
   .command('write_q <id> <input...>')
   .description('Write a command to an SSH session quietly')
   .action((id, inputArr) => {
