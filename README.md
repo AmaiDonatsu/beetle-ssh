@@ -9,6 +9,7 @@ El objetivo principal de Beetle es administrar y orquestar múltiples sesiones S
 
 ## Resumen de Funcionalidades
 - **Control Asíncrono:** Manda scripts silenciosos (`write_q`) o extrae el historial (`read_session`) de múltiples servidores cuando quieras.
+- **🤖 Optimizado para Agentes de IA:** Beetle es el puente perfecto para asistentes automatizados. Como maneja dinámicamente el salto de programas interactivos y resuelve pausas bloqueantes (como interceptar los requerimientos de contraseñas de `sudo` inyectando la llave nativamente), permite que un Agente Autónomo opere, configure o diagnostique servidores remotos durante horas de forma 100% desatendida sin congelarse ni obligar al usuario a estar pegado a la pantalla tecleando claves.
 - **Auto-Sudo Vault:** Detecta comandos `sudo` remotos por Regex y rellena tu clave secreta guardada localmente de manera milimétrica y oculta.
 - **Anti-Kernel Panic:** Protección con KeepAlive, cierre forzoso (`drop_session`), inyecciones de bytes reservadas (`send_key ctrl+c`) y reactivación sin pérdida de perfiles (`reconnect`).
 - **Limpiador D-State:** Filtrado ANSI a petición usando el flag `--clean` para extraer texto de interfaces en ASCII desmoronadas o aplicaciones de pantalla completa.
